@@ -3,10 +3,19 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import { signinSchema, signupSchema } from './lib/auth-schema'
 import { prisma } from './lib/db'
+import authMiddleware from './lib/middleware'
+import { createClient } from 'redis'
+import { untilWeGotback, QUEUE_ID } from './lib/untilWeGotback'
+
+const client = createClient()
+
+await client.connect()
+    
 
 const app = express()
 
 app.use(express.json())
+
 
 app.post('/signup', async (req, res) => {
     try {
@@ -93,7 +102,26 @@ app.post('/signin', async (req, res) => {
     }
 })
 
+app.post('/order', authMiddleware, async (req, res) => {
+    const userId = req.userId
+    const { type, price, qty, market_id, side } = req.body;
+    
+    let identifier = Math.random()
+    const callbackResponse = untilWeGotback(identifier)
+    
+    await client.lPush('incoming-order', JSON.stringify({
+        type, price, qty, market_id, side, userId, identifier, queue_id: QUEUE_ID
+    }))
+
+    const returnedData = await callbackResponse
+
+    res.json({
+        message: 'order placed',
+        filledQty: returnedData.filledQty
+    })
+
+})
+
 app.listen(3000, () => {
     console.log('Port is listening on 3000')
 })
-
