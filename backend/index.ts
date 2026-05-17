@@ -104,13 +104,13 @@ app.post('/signin', async (req, res) => {
 
 app.post('/order', authMiddleware, async (req, res) => {
     const userId = req.userId
-    const { type, price, qty, market_id, side } = req.body;
+    const { type, price, qty, market_id, side, symbol } = req.body;
     
     let identifier = Math.random()
     const callbackResponse = untilWeGotback(identifier)
     
     await client.lPush('incoming-order', JSON.stringify({
-        type, price, qty, market_id, side, userId, identifier, queue_id: QUEUE_ID
+        type, price, qty, market_id, side, symbol, userId, identifier, queue_id: QUEUE_ID
     }))
 
     const returnedData = await callbackResponse
